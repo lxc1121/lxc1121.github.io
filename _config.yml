@@ -1,0 +1,7 @@
+mardown: redcarpet
+highlighter: pygments
+permalink: /:year/:month/:title/
+url: http://vosamo.github.io
+author: vosamo
+gems: [jekyll-paginate]
+paginate: 24
