@@ -1,7 +1,7 @@
 mardown: redcarpet
 highlighter: pygments
 permalink: /:year/:month/:title/
-url: http://vosamo.github.io
-author: vosamo
+url: http://lxc1121.github.io
+author: lxc1121
 gems: [jekyll-paginate]
 paginate: 24
