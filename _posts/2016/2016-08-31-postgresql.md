@@ -45,7 +45,7 @@ psql 默认使用当前登录用户名登陆同名数据库，意思是如果当
 
 * yum install rsyslog-pgsql 安装rsyslog的postgresql驱动模块
 * 编辑文件/usr/share/doc/rsyslog-7.4.7/pgsql-createDB.sql**注释第一行**
-* psql -U rsyslog &lt; /usr/share/doc/rsyslog-7.4.7/pgsql-createDB.sql
+* psql -U rsyslog -d Syslog &lt; /usr/share/doc/rsyslog-7.4.7/pgsql-createDB.sql **导入表到数据库Syslog**
 * 通过psql -U rsyslog -d Syslog登录数据库,\dt 查看表，owner应该是rsyslog，如不是则需管理员手动修改
 
 ## 配置rsyslog 
