@@ -17,6 +17,7 @@ tags:
 
 正常情况下，安装完成后，PostgreSQL服务器会自动在本机的5432端口开启。
 初次安装后，默认生成一个名为postgres的数据库和一个名为postgres的数据库用户。
+
 **这里需要注意的是，同时还生成了一个名为postgres的Linux系统用户。**
 
 ## 创建用户
@@ -70,9 +71,9 @@ psql 默认使用当前登录用户名登陆同名数据库，意思是如果当
 
 ## 检查效果
 
-1 重启 rsyslog服务
-2 psql -U rsyslog -d Syslog 登录postgresql数据库
-2 select * from systemevents;
+1. 重启 rsyslog服务
+2. psql -U rsyslog -d Syslog 登录postgresql数据库
+3. select * from systemevents;
 
 如能查询到数据库中有日志产生，则配置成功
 
