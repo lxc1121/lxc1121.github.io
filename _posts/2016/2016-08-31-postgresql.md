@@ -25,11 +25,14 @@ tags:
 	psql 			/*登录PostgreSQL控制台,相当于命令psql -U postgres -d postgres*/
 	\password postgres 	/*设置密码*/
 	create role rsyslog
+
 ## 创建数据库
 
 	create database "Syslog" owner=rsyslog (**数据库名是大写字母必须要用双引号括起来**)
 	grant all on database Syslog to rsyslog /**为用户rsyslog授权**/
+
 ## 配置rsyslog
+
 * yum install rsyslog-pgsql 安装rsyslog的postgresql驱动模块
 
 
