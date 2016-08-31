@@ -9,9 +9,7 @@ tags:
 - database
 ---
 
-# PostgreSQL
-
-## 安装
+## PostgreSQL 安装
 
 	yum install postgresql postgresql-server
 
@@ -34,12 +32,12 @@ psql 默认使用当前登录用户名登陆同名数据库，意思是如果当
 
 ## 创建数据库
 
-	create database "Syslog" owner=rsyslog (**数据库名是大写字母必须要用双引号括起来**)
+	create database "Syslog" owner=rsyslog /**数据库名是大写字母必须要用双引号括起来**/
 	grant all on database "Syslog" to rsyslog /**为用户rsyslog授权**/
 
 数据库创建完成后\q退出，执行以下命令测试
 	
-	psql -U rsyslog -d Syslog
+	psql -U rsyslog -d Syslog	/*以用户rsyslog登录并连接到Syslog数据库*/
 
 理论上能正常登陆数据库，\l命令查看数据库Syslog的授权情况
 
@@ -47,25 +45,25 @@ psql 默认使用当前登录用户名登陆同名数据库，意思是如果当
 
 * yum install rsyslog-pgsql 安装rsyslog的postgresql驱动模块
 * 编辑文件/usr/share/doc/rsyslog-7.4.7/pgsql-createDB.sql**注释第一行**
-* psql -U rsyslog &lt /usr/share/doc/rsyslog-7.4.7/pgsql-createDB.sql
+* psql -U rsyslog &lt; /usr/share/doc/rsyslog-7.4.7/pgsql-createDB.sql
 * 通过psql -U rsyslog -d Syslog登录数据库,\dt 查看表，owner应该是rsyslog，如不是则需管理员手动修改
 
 ## 配置rsyslog 
 
 编辑 /etc/rsyslog.conf文件
 
-	$ModLoad ompgsql #ommysql
-	#*.*     :ommysql:localhost,Syslog,rsyslog,123456
-	*.*        :ompgsql:127.0.0.1,Syslog,rsyslog,123456
+	$ModLoad ompgsql 	#载入psql驱动模块
+	#*.*	   :ommysql:localhost,Syslog,rsyslog,123456
+	*.*        :ompgsql:127.0.0.1,Syslog,rsyslog,123456 
 
 	#mail.*     :ommysql:Syslog,rsyslog,123456
 	# Provides UDP syslog reception
 	$ModLoad imudp
-	$UDPServerRun 514
+	$UDPServerRun 514	#开启udp端口监听，意思是通过udp端口接收客户端发过来的日志
 
 	# Provides TCP syslog reception
 	$ModLoad imtcp
-	$InputTCPServerRun 514
+	$InputTCPServerRun 514  #开启tcp端口监听
 
 **主意#号后是注释，可以不写**
 
@@ -76,4 +74,5 @@ psql 默认使用当前登录用户名登陆同名数据库，意思是如果当
 3. select * from systemevents;
 
 如能查询到数据库中有日志产生，则配置成功
+
 
