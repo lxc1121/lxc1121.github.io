@@ -27,8 +27,9 @@ tags:
 
 psql 默认使用当前登录用户名登陆同名数据库，意思是如果当是root用户，那么psql=psql -U root -d root
 
-	\password postgres 	/*设置密码*/
+	\password postgres 	/*为用户postgres设置密码,可以不*/
 	create role rsyslog	/*创建用户rsyslog*/
+	\password rsyslog 	/*为用户rsyslog设置密码，123456*/
 
 ## 创建数据库
 
@@ -66,4 +67,12 @@ psql 默认使用当前登录用户名登陆同名数据库，意思是如果当
 	$InputTCPServerRun 514
 
 **主意#号后是注释，可以不写**
+
+## 检查效果
+
+1 重启 rsyslog服务
+2 psql -U rsyslog -d Syslog 登录postgresql数据库
+2 select * from systemevents;
+
+如能查询到数据库中有日志产生，则配置成功
 
