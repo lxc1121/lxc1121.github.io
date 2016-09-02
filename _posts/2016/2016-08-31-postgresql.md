@@ -82,17 +82,16 @@ psql 默认使用当前登录用户名登陆同名数据库，意思是如果当
 
 	yum install php-pgsql  php-common
 
-* **下载loganalyzer-'version'.tar.gz并解压缩**
+##开始安装LOGANALYZER
+
+下载loganalyzer-'version'.tar.gz并解压缩**
+LOGANALYZER的安装实际上是配置，在config.php中配置数据源，用户账户等。
+因此config.php需要可写，如不可写，则需要配置selinux和firewall。
 
 	rsync -a loganalyzer-'version'/src/ /var/www/html/{"your web app directry"}
 	cd /var/www/html/{"your web app directry"}
 	touch config.php
 	chmod 666 config.php
-
-##开始安装LOGANALYZER
-
-LOGANALYZER的安装实际上是配置，在config.php中配置数据源，用户账户等。
-因此config.php需要可写，如不可写，则需要配置selinux和firewall。
 
 **打开安装的浏览器，地址栏输入localhost/loganalyzer/install.php开始安装**
 **step1、step2点击next跳过即可**
