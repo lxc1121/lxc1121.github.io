@@ -75,4 +75,30 @@ psql 默认使用当前登录用户名登陆同名数据库，意思是如果当
 
 如能查询到数据库中有日志产生，则配置成功
 
+## 配置LOGANALYZER
 
+* LOGANALYZER是用php写的一个web日志分析工具
+* 要使用postgresql，需要安装postgre的php扩展
+
+	yum install php-pgsql  php-common
+
+* **下载loganalyzer-'version'.tar.gz并解压缩**
+
+	rsync -a loganalyzer-'version'/src/ /var/www/html/{"your web app directry"}
+	cd /var/www/html/{"your web app directry"}
+	touch config.php
+	chmod 666 config.php
+
+##开始安装LOGANALYZER
+
+LOGANALYZER的安装实际上是配置，在config.php中配置数据源，用户账户等。
+因此config.php需要可写，如不可写，则需要配置selinux和firewall。
+
+**打开安装的浏览器，地址栏输入localhost/loganalyzer/install.php开始安装**
+**step1、step2点击next跳过即可**
+**LOGANALYZER不支持在postgre上创建登录用户，所以step3中默认配置，点击next直接到step7**
+**Source Type中选择数据源，这里选Database(PDO)**
+**Database Storage Engine选择PostgreSQL**
+**其他配置主机=localhost,数据库名=Syslog，数据库用户=rsyslog，密码123456，数据库表SystemEvents**
+
+配置完成后点下一步、finish。完成配置后自动跳转到index页面，此时已经可以看到日志信息了
