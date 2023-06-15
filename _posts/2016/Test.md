@@ -1,0 +1,676 @@
+**Data类**
+
+Data类定义了表示数据的属性：
+
+- Tag（类型：string）：标签名。
+- DoubleValue（类型：double）：双精度浮点数值。
+- StringValue（类型：string）：字符串值。
+- Int64Value（类型：long）：64位整数值。
+- BytesValue（类型：byte[]）：字节数组值。
+- DataType（类型：string）：数据类型。
+- Quality（类型：string）：数据质量。
+- Timestamp（类型：DateTime）：时间戳。
+
+**DataDriver类**
+
+DataDriver类是一个数据驱动类，其中包含了与外部交互的API方法和一些辅助方法。
+
+成员变量和属性：
+
+- opcSVRAPI：OPCServerAPI类的实例，用于与OPC服务器进行交互。
+- log：log4net.ILog对象，用于记录日志。
+- IsWriteRun：用于控制写入操作的标志。
+- Version：版本信息。
+- Name：名称。
+- Desc：描述。
+
+对外API方法：
+
+- GetVersion()：返回版本信息的API方法。
+- SetBasicConfig(string cfgName, string cfgMsg)：设置基础配置的API方法。
+- SetRunConfig(string cfgName, string cfgMsg)：设置运行配置的API方法。
+- Init()：初始化的API方法。
+- SetFun(DelegateInput delegateInput)：设置回调函数的API方法。
+- WriteData(string dataInfo, Data[] dataList)：写入数据的API方法。
+- Run()：启动的API方法。
+- Stop()：停止的API方法。
+- GetState()：获取状态的API方法。
+
+辅助方法：
+
+- getAppNameFromPath()：从路径中获取应用程序名称的方法。
+- setErrCode()：设置错误代码的方法。
+
+以下是将给定的文本转换为Markdown格式并进行合理排版的结果：
+
+## 类：OPCServerAPI
+
+**概述：** OPCServerAPI类是用于与OPC服务器进行通信和数据处理的主要API类。它包含了连接到OPC服务器、创建订阅以及处理数据更新事件等功能。
+
+**全局变量和字段：**
+
+- log: 用于记录日志的ILog对象。
+- dicPubOPCTag: 一个并发字典，用于保存OPC发布的点（tags）及其相关信息。
+- dic_PubKey: 一个并发字典，用于将发布点（tags）和标签信息进行映射。
+- dic_SourceKey: 一个并发字典，用于将源标签点（collection points）和标签信息进行映射。
+- RunCfgObj: 运行配置对象的实例。
+- autoTagQueue: 一个并发队列，用于存储自动标签。
+- stopSign: 内部停止标志，用于控制程序运行。
+- RunCommand: 外部运行命令，用于控制程序运行。
+- CurrRunCfg: 当前运行配置。
+- LastRunCfg: 上次运行配置。
+- lastRunMode: 上次运行模式。
+- dtLastReData: 上次重新加载数据的时间。
+- RunState: 运行状态枚举值。
+- _Lock: 对象锁，用于同步访问关键代码块。
+- SynRunConfigThread: 同步运行配置的线程。
+- SynAutoTagToFileThread: 同步自动标签到文件的线程。
+- EventMsg: 用于处理事件消息的委托。
+- UnknownItem: 用于获取客户端请求的OPCClient的标签信息的委托。
+- WriteNotification: 用于获取客户端请求的标签信息的委托。
+- ItemRemoved: 用于处理标签移除的委托。
+- RateChange: 用于处理OPCClient请求的标签更新频率的委托。
+- ErrorCallback: 用于处理错误回调的委托。
+- Disconnect: 用于处理OPCClient应用程序与WTOPCSvr.DLL断开连接的委托。
+
+这些全局变量和字段在整个OPCServerAPI类中可供访问和使用。
+
+**OPCServerAPI构造函数**
+
+参数：无
+
+功能：设置发送光信号为关闭状态。
+
+**Initialization()**
+
+参数：无
+
+返回值：bool（表示初始化是否成功）
+
+功能：初始化OPC服务器。方法执行以下操作：
+
+- 记录错误级别的日志，表示OPC服务器正在初始化。
+- 删除动态标签文件。
+- 将lastRunMode设置为自动标签模式（RunCfgObj.enAutoTag）。
+- 调用IniOPCSvr()方法进行OPC服务器的初始化。
+
+如果初始化成功，则执行以下操作：
+
+- 设置发送光信号为开启状态。
+- 调用RunMode()方法。
+
+如果初始化失败，则执行以下操作：
+
+- 记录错误级别的日志，表示OPC服务器初始化失败。
+- 设置发送光信号为关闭
+
+状态。
+- 记录错误级别的日志，表示OPC服务器退出。
+- 返回初始化结果result。
+
+**RunMode()**
+
+参数：无
+
+返回值：bool（表示运行模式设置是否成功）
+
+功能：运行模式模块。方法执行以下操作：
+
+- 尝试执行以下操作：
+  - 如果GlobalClass.RunMode为1（自动加点方式），则执行以下操作：
+    - 启动将动态添加的标签写入文件的操作。
+  - 如果GlobalClass.RunMode为0（手动加点方式），则调用LoadReleaseTag()方法。
+  - 将LastRunCfg设置为CurrRunCfg。
+  - 启动同步运行配置的操作。
+- 如果发生异常，则将结果result设置为假，并记录错误级别的日志，表示在启动初始化线程时发生异常。
+- 返回结果result。
+
+**IniOPCSvr()**
+
+参数：无
+
+返回值：bool（表示OPC服务器初始化是否成功）
+
+功能：初始化OPC服务器。方法执行以下操作：
+
+- 去除30分钟限制。
+- 调用UpdateReg()方法进行注册更新。
+- 如果注册更新成功，则执行以下操作：
+  - 记录信息级别的日志，表示OPCSvr注册名称和路径。
+  - 设置厂商信息。
+- 初始化OPC服务器，传入全局变量GlobalClass.OPCSvrClsID和GlobalClass.ServerRate。
+- 如果初始化成功，则执行以下操作：
+  - 调用DelegateImplement()方法设置代理。
+  - 如果设置代理失败，则记录警告级别的日志，表示初始化OPCServer失败-设置代理方法失败。
+- 如果初始化失败，则记录警告级别的日志，表示InitWTOPCsvr调用失败。
+- 如果注册更新失败，则记录警告级别的日志，表示注册OPCServer失败。
+- 根据初始化结果result记录日志，表示OPCServer初始化成功或失败。
+
+**Deactivate30MinTimer(string serial)**
+
+参数：
+- serial（字符串类型，表示序列号）
+
+返回值：无
+
+功能：调用WtOPCsvr_DLL中的Deactivate30MinTimer方法，传入序列号参数进行操作。该方法用于去除30分钟限制。
+- 将返回值存储在retVal变量中。
+- 记录调试级别的日志，表示完成去除30分钟限制，日志中包含返回值。
+
+**UpdateReg()**
+
+参数：无
+
+返回值：
+- bool（表示注册更新是否成功）
+
+功能：调用WtOPCsvr_DLL中的UpdateRegistry方法，传入全局变量GlobalClass.OPCSvrClsID、GlobalClass.OPCSvrName、GlobalClass.OPCSvrDesc和GlobalClass.ExeRegPath进行操作。该方法用于更新注册信息。
+- 将方法的返回值存储在updateReg变量中。
+- 返回updateReg的值，表示注册更新是否成功。
+
+**LoadReleaseTag()**
+
+参数：无
+
+返回值：无
+
+功能：加载并创建初始标签点。方法执行以下操作：
+
+- 获取当前时间作为开始时间。
+- 尝试执行以下操作：
+  - 将运行配置中的标签点列表转换为字典，并将结果赋值给变量cDicRun。
+  - 调用SynRunConfigAdd(cDicRun)方法，将转换后的标签点字典作为参数进行处理。
+- 如果发生异常，则记录警告级别的日志，表示初始化发布点异常。
+- 最后，执行清理操作（空操作）。
+
+
+**CVTRunCfgToDic(List runTagList)**
+
+参数：
+- runTagList（List<TagsItem>类型，运行配置中的标签点列表）
+
+返回值：
+- ConcurrentDictionary<string, TagsItem>（并发字典，以发布标签名作为键，标签项作为值）
+
+功能：
+将运行配置中的标签点列表转换为字典。方法执行以下操作：
+- 清空字典dic_PubKey和dic_SourceKey。
+- 遍历运行配置中的标签点列表runTagList：
+  - 尝试执行以下操作：
+    - 获取当前标签项tagsItem。
+    - 获取发布标签名pubName。
+    - 如果字典dic_PubKey不包含发布标签名pubName，则执行以下操作：
+      - 将发布标签名pubName作为键，将标签项tagsItem作为值，添加到字典dic_PubKey中。
+    - 否则，将字典dic_PubKey中发布标签名pubName对应的值更新为标签项tagsItem。
+    - 获取源标签名srcName。
+    - 如果字典dic_SourceKey不包含源标签名srcName，则执行以下操作：
+      - 将源标签名srcName作为键，将标签项tagsItem作为值，添加到字典dic_SourceKey中。
+    - 否则，将字典dic_SourceKey中源标签名srcName对应的值更新为标签项tagsItem。
+    - 如果发生异常，则记录警告级别的日志，表示添加标签点到集合异常。
+- 返回字典dic_PubKey。
+
+**DelegateImplement()**
+
+参数：无
+
+返回值：bool（表示代理实现是否成功）
+
+功能：设置OPC代理实现。方法执行以下操作：
+
+- 创建事件消息委托EventMsg，指向方法MyEventMsg。
+- 调用WtOPCsvr_Library.WtOPCsvr_DLL.EnableEventMsgs方法，将事件消息委托作为参数，启用从WtOPCsvr.dll接收OPC服务器接口的事件消息。
+- 如果启用事件消息失败，则记录警告级别的日志，表示代理失败，并返回false。
+- 设置标签哈希容量为25000，并将返回的当前哈希容量值赋给变量nowSizeHash。
+- 记录调试级别的日志，表示设置哈希容量的返回值。
+- 根据全局变量GlobalClass.RunMode的值进行判断：
+  - 如果运行模式为1（自动加点方式），则执行以下操作：
+    - 创建未知标签项委托UnknownItem，指向方法MyUnknownItem。
+    - 调用WtOPCsvr_DLL.EnableUnknownItemNotification方法，将未知标签项委托作为参数，启用未知标签项通知。
+    - 如果启用未知标签项通知失败，则记录警告级别的日志，表示代理失败，并返回false。
+  - 如果运行模式为0（手动加点方式），则记录错误级别的日志，表示运行模式为手动加点方式。
+- 创建写数据委托WriteNotification，指向方法MyWriteNotification。
+- 调用WtOPCsvr_Library.WtOPCsvr_DLL.EnableWriteNotification方法，将写数据委托和参数true（表示启用写数据通知）作为参数，启用写数据通知。
+- 创建错误回调委托ErrorCallback，指向方法MyErrorCallback。
+- 调用WtOPCsvr_DLL.EnableErrorCallback方法，将错误回调委托作为参数，启用错误回调。
+- 如果启用错误回调失败，则记录警告级别的日志，表示代理失败，并返回false。
+- 创建连接断开委托Disconnect，指向方法MyDisconnect。
+- 调用WtOPCsvr_DLL.EnableDisconnectNotification方法，将连接断开委托作为参数，启用连接断开通知。
+- 如果启用连接断开通知失败，则记录警告级别的日志，表示代理失败，并返回false。
+- 返回代理实现结果result。
+
+
+**MyItemRemoved(UInt32 hItem, String PathName, String ItemName)**
+
+参数：
+- hItem（UInt32类型，标签句柄）
+- PathName（string类型，路径名）
+- ItemName（string类型，标签名）
+
+返回值：无
+
+功能：处理请求删除标签点的操作。方法为空，没有实际的处理逻辑。
+
+**MyEventMsg(String Message)**
+
+参数：
+- Message（string类型，事件消息）
+
+
+
+返回值：无
+
+功能：输出接口日志。方法执行以下操作：
+- 根据全局变量GlobalClass.IsRecodeInterfaceLog的值进行判断：
+  - 如果为真，表示需要记录接口日志，执行以下操作：
+    - 记录调试级别的日志，表示接口日志输出。
+
+**MyErrorCallback(IntPtr handle, UInt32 ResultCode, String Message)**
+
+参数：
+- handle（IntPtr类型，句柄）
+- ResultCode（UInt32类型，结果代码）
+- Message（string类型，错误消息）
+
+返回值：无
+
+功能：回调错误信息。方法执行以下操作：
+- 记录警告级别的日志，表示接口错误回调，并将句柄、结果代码和错误消息作为日志的内容。
+
+**MyDisconnect(UInt32 NumbrClients)**
+
+参数：
+- NumbrClients（UInt32类型，剩余客户端数量）
+
+返回值：无
+
+功能：处理连接断开的操作。方法执行以下操作：
+- 记录警告级别的日志，表示有一个OPC客户端断开，并将剩余客户端数量作为日志的内容。
+
+**SetNotExistTag(TagsItem tagItem)**
+
+参数：
+- tagItem（TagsItem类型，标签项）
+
+返回值：无
+
+功能：设置在数据订阅内存区不存在的发布点。方法执行以下操作：
+- 创建一个新的标签对象tagObject。
+- 根据标签项的属性值设置变量isWrite。
+- 调用WtOPCsvr_Library.WtOPCsvr_DLL.CreateTag方法创建并初始化发布点，并将结果赋值给变量tagHandler。
+- 如果标签句柄tagHandler大于0，则执行以下操作：
+  - 设置标签对象的相关属性值。
+  - 尝试执行以下操作：
+    - 如果字典dicPubOPCTag不包含发布标签名tagItem.publish_tag_name，则执行以下操作：
+      - 将发布标签名tagItem.publish_tag_name作为键，将标签对象tagObject作为值，添加到字典dicPubOPCTag中。
+    - 否则，将字典dicPubOPCTag中发布标签名tagItem.publish_tag_name对应的值更新为标签对象tagObject。
+  - 如果发生异常，则记录警告级别的日志，表示添加发布点到集合异常。
+- 否则，记录警告级别的日志，表示创建发布点失败或重复。
+
+**DelegateImplement()**
+
+参数：无
+
+返回值：bool（表示代理实现是否成功）
+
+功能：设置OPC代理实现。方法执行以下操作：
+
+1. 创建事件消息委托 EventMsg，指向方法 MyEventMsg。
+2. 调用 WtOPCsvr_Library.WtOPCsvr_DLL.EnableEventMsgs 方法，将事件消息委托作为参数，启用从WtOPCsvr.dll接收OPC服务器接口的事件消息。
+3. 如果启用事件消息失败，则记录警告级别的日志，表示代理失败，并返回false。
+4. 设置标签哈希容量为25000，将返回的当前哈希容量值赋给变量nowSizeHash。
+5. 记录调试级别的日志，表示设置哈希容量的返回值。
+6. 根据全局变量GlobalClass.RunMode的值进行判断：
+   - 如果运行模式为1（自动加点方式），则执行以下操作：
+     - 创建未知标签项委托UnknownItem，指向方法MyUnknownItem。
+     - 调用WtOPCsvr_DLL.EnableUnknownItemNotification方法，将未知标签项委托作为参数，启用未知标签项通知。
+     - 如果启用未知标签项通知失败，则记录警告级别的日志，表示代理失败，并返回false。
+   - 如果运行模式为0（手动加点方式），则记录错误级别的日志，表示运行模式为手动加点方式。
+7. 创建写数据委托WriteNotification，指向方法MyWriteNotification。
+8. 调用WtOPCsvr_Library.WtOPCsvr_DLL.EnableWriteNotification方法，将写数据委托和参数true（表示启用写数据通知）作为参数，启用写数据通知。
+9. 创建错误回调委托ErrorCallback，指向方法MyErrorCallback。
+10. 调用WtOPCsvr_DLL.EnableErrorCallback方法，将错误回调委托作为参数，启用错误回调。
+11. 如果启用错误回调失败，则记录警告级别的日志，表示代理失败，并返回false。
+12. 创建连接断开委托Disconnect，指向方法MyDisconnect。
+13. 调用WtOPCsvr_DLL.EnableDisconnectNotification方法，将连接断开委托作为参数，启用连接断开通知。
+14. 如果启用连接断开通知失败，则记录警告级别的日志，表示代理失败，并返回false。
+15. 返回代理实现结果result。
+
+**MyItemRemoved(UInt32 hItem, String PathName, String ItemName)**
+
+参数：
+- hItem（UInt32 类型，标签句柄）
+- PathName（string 类型，路径名）
+- ItemName（string 类型，标签名）
+
+返回值：无
+
+功能：处理请求删除标签点的操作。方法为空，没有实际的处理逻辑。
+
+**MyEventMsg(String Message)**
+
+参数：
+- Message（string 类型，事件消息）
+
+返回值：无
+
+功能：输出接口日志。方法执行以下操作：
+
+1. 根据全局变量GlobalClass.IsRecodeInterfaceLog的值进行判断：
+   - 如果为真，表示需要记录接口日志，执行以下操作：
+     - 记录调试级别的日志，表示接口日志输出。
+
+**MyErrorCallback(IntPtr handle, UInt32 ResultCode, String Message)**
+
+参数：
+- handle（IntPtr 类型，句柄）
+- ResultCode（UInt32 类型，结果代码）
+- Message（string 类型，错误消息）
+
+返回值：无
+
+功能：回调错误信息。方法执行以下操作：
+
+- 记录警告级别的日志，表示接口错误回调，并将句柄、结果代码和错误消息作为日志的内容。
+
+抱歉，以下是更新后的Markdown格式的描述，没有使用反引号：
+
+**MyDisconnect(UInt32 NumbrClients)**
+
+参数：
+- NumbrClients（UInt32类型）：剩余客户端数量。
+
+返回值：无。
+
+功能：处理连接断开的操作。方法执行以下操作：
+- 记录警告级别的日志，表示有一个OPC客户端断开，并将剩余客户端数量作为日志的内容。
+- 设置标签对象的相关属性值。
+- 尝试执行以下操作：
+  - 如果字典dicPubOPCTag不包含发布标签名tagItem.publish_tag_name，则执行以下操作：
+    - 将发布标签名tagItem.publish_tag_name作为键，将标签对象tagObject作为值，添加到字典dicPubOPCTag中。
+    - 否则，将字典dicPubOPCTag中发布标签名tagItem.publish_tag_name对应的值更新为标签对象tagObject。如果发生异常，则记录警告级别的日志，表示添加发布点到集合异常。
+  - 否则，记录警告级别的日志，表示创建发布点失败或重复。
+
+**MyUnknownItem(string PathName, string ItemName)**
+
+参数：PathName（string类型，路径名）、ItemName（string类型，标签点名）
+
+返回值：无。
+
+功能：处理标签点请求。方法执行以下操作：
+- 检查请求的标签名长度是否大于256个字符，如果是，则记录日志，表示请求的标签点名超过256个字符，然后返回。
+- 如果字典dicPubOPCTag中不包含请求的标签名ItemName，则执行以下操作：
+  - 记录日志，表示请求的新标签点名。
+  - 创建一个新的标签项tagItem，并设置其属性值（publish_tag_name、source_tag_name、data_type、write_able）。
+  - 调用SetNotExistTag(tagItem)方法设置不存在的标签。
+  - 调用AutoTagToDic(ItemName)方法将标签点同步到字典dic_PubKey和dic_SourceKey中。将标签点名ItemName添加到自动加点队列autoTagQueue中。
+
+**AutoTagToDic(string autoTagName)**
+
+参数：autoTagName（string类型，自动加点的标签名）
+
+返回值：无。
+
+功能：将自动加点的标签点同步到字典dic_PubKey和dic_SourceKey中。方法执行以下操作：
+- 创建一个新的标签项tagsItem，并设置其属性值（publish_tag_name、source_tag_name、data_type）。将标签名autoTagName作为键，将标签项tagsItem作为值，添加到字典dic_PubKey中。
+- 将标签名autoTagName作为键，将标签项tagsItem作为值，添加到字典dic_SourceKey中。
+
+**MyWriteNotification(IntPtr hItem, ref Object Value, ref UInt32 ResultCode)**
+
+参数：
+- hItem（IntPtr类型，标签点的句柄）
+- Value（ref Object类型，写入的值）
+- ResultCode（ref UInt32类型，写入结果代码）
+
+返回值：无
+
+功能：处理标签点写入。方法执行以下操作：
+
+- 遍历字典dicPubOPCTag中的所有键key：
+  - 如果键key对应的标签点的句柄tagObject.tagHandlerId等于参数hItem，则执行以下操作：
+    - 获取标签点的发布标签名pubTagName。
+    - 尝试从字典dic_PubKey中根据发布标签名获取源标签名srcTag。如果获取成功，则执行以下操作：
+      - 记录日志，表示接收到外部写入点名、对应源标签名、值和类型。
+      - 创建一个数据列表listData。
+      - 创建一个数据项dataTemp，并根据写入的值Value设置其属性值（Tag、DataType、Int64Value、DoubleValue、StringValue）。
+      - 设置数据项的时间戳、质量，并将数据项添加到数据列表中。
+      - 调用DataDriver.DeleInputCallback("{"topic":"all"}", listData.ToArray())方法，将数据列表发送给数据驱动进行处理。
+    - 否则，记录日志，表示接收到外部写入点名，但未找到匹配的源标签名。
+
+**StartSynRunConfig()**
+
+参数：无
+
+返回值：无
+
+功能：启动运行配置同步线程。方法执行以下操作：
+
+1. 创建并启动一个后台线程SynRunConfigThread，线程执行SynRunConfig方法。
+2. 记录日志，表示配置同步线程已启动。
+
+**SynRunConfig()**
+
+参数：无
+
+返回值：无
+
+功能：同步运行配置。方法执行以下操作：
+
+在循环中，只要stopSign为false，就执行以下操作：
+1. 检查当前运行配置CurrRunCfg是否与上一次运行配置LastRunCfg相等，如果不相等，则执行以下操作：
+   - 更新上一次运行配置为当前运行配置。
+   - 记录日志，表示运行配置文件变化。
+   - 如果采集方式发生变化（GlobalClass.RunMode不等于lastRunMode），则执行以下操作：
+     - 记录日志，表示采集方式变化，程序退出。
+     - 调用Environment.Exit(0)方法退出程序。
+   - 如果运行方式为手动模式（GlobalClass.RunMode等于0），则执行以下操作：
+     - 将运行配置的标签字典转换为并发字典cDicRun。
+     - 调用SynRunConfigAdd(cDicRun)方法同步新增的点。
+     - 调用SynRunConfigDel(cDicRun)方法同步删除的点。
+2. 如果发生异常，则记录日志，表示同步运行配置异常。
+3. 线程休眠5000毫秒。
+
+
+**类：ErrCode**
+
+属性：
+- SetBasicErrCfg
+  - 类型：int
+  - 值：0x110A0207
+  - 描述：设置基本错误配置的错误码。
+
+- SetRunErrCfg
+  - 类型：int
+  - 值：0x110A0307
+  - 描述：设置运行错误配置的错误码。
+
+- SetIniNotIni
+  - 类型：int
+  - 值：0x110A040E
+  - 描述：设置INI文件为非INI文件的错误码。
+
+类：GlobalClass
+
+属性：
+- log
+  - 类型：ILog
+  - 描述：用于记录日志的对象。
+
+- AppName
+  - 类型：string
+  - 描述：应用程序名称。
+
+- RunMode
+  - 类型：int
+  - 值：0
+  - 描述：运行模式，0表示手动，1表示自动。
+
+- IsRecodeInterfaceLog
+  - 类型：bool
+  - 值：（未提供）
+  - 描述：（未提供）
+
+**SynRunConfigAdd(ConcurrentDictionary<string, TagsItem> cDicRun)**
+
+参数：
+- cDicRun（ConcurrentDictionary<string, TagsItem> 类型）：运行配置中的标签字典
+
+返回值：无
+
+功能：同步运行配置中添加的点。方法执行以下操作：
+- 初始化新增点的计数器 addTagCount。
+- 遍历运行配置中的标签字典，处理每个标签项 tagItem：
+  - 如果发布标签名 tagItem.publish_tag_name 在字典 dicPubOPCTag 中不存在，则执行以下操作：
+    - 增加新增点计数器。
+    - 调用 SetNotExistTag(tagItem) 方法设置不存在的标签。
+    - 记录日志，表示同步运行配置新增点。
+  - 否则，更新已存在点的数据类型和可写状态。
+    - 记录日志，表示同步运行配置新增发布点的个数。
+
+**SynRunConfigDel(ConcurrentDictionary<string, TagsItem> cDicRun)**
+
+参数：
+- cDicRun（ConcurrentDictionary<string, TagsItem> 类型）：运行配置中的标签字典
+
+返回值：无
+
+功能：同步运行配置中删除的点。方法执行以下操作：
+- 初始化删除点的计数器 delTagCount、成功从字典中删除的计数器 delDicItemOKCount、成功从 OPC 中删除的计数器 delOPCOKCount。
+- 获取字典 dicPubOPCTag 中的所有键，并保存在列表 keyList 中。
+- 遍历键列表 keyList，处理每个键 key：
+  - 如果键 key 在运行配置的标签字典 cDicRun 中不存在，则执行以下操作：
+    - 增加删除点计数器。
+    - 尝试从字典 dicPubOPCTag 中移除键 key 对应的值，并将移除操作的结果保存在变量 res 中。
+    - 如果移除操作成功，则执行以下操作：
+      - 增加成功从字典中删除的计数器。
+      - 记录日志，表示同步运行配置成功从字典中删除点。
+    - 调用 WtOPCsvr_DLL.RemoveTag(tagObj.tagHandlerId) 方法从 OPC 中删除标签，并将删除操作的结果保存在变量 res 中。
+    - 如果 OPC 中删除成功，则增加成功从 OPC 中删除的计数器，并记录日志，表示同步运行配置成功从 OPC 中删除点；否则，记录日志，表示同步运行配置从 OPC 中删除点失败。
+  - 否则，记录日志，表示同步运行配置从字典中删除点失败。
+- 记录日志，表示同步运行配置待删除的点个数、字典中成功删除的点个数和 OPC 中成功删除的点个数。
+
+**UpdateSvrTag(Data[] data_list)**
+
+参数：data_list（Data[] 类型，传入的数据列表）
+
+返回值：无
+
+功能：根据接收到的数据更新 SVR 标签点。方法执行以下操作：
+1. 检查全局变量 RunCommand 是否为 false，如果是，则直接返回。
+2. 调用 SetPubLight() 方法设置发布灯状态。
+3. 如果传入的数据列表 data_list 不为 null 且长度大于 0，则执行以下操作：
+   - 获取当前时间作为更新开始时间。
+   - 记录日志，表示接收到的数据点个数。
+   - 调用外部库方法 StartUpdateTags() 启动更新标签点。
+   - 循环遍历传入的数据列表，处理每个数据点：
+     - 获取数据点的源标签名称 source_tagName。
+     - 检查 dic_SourceKey 字典中是否包含源标签名称，如果存在，则执行以下操作：
+       - 获取源标签对应的发布标签名称 pubName。
+       - 检查 dicPubOPCTag 字典中是否包含发布标签名称，如果存在，则执行以下操作：
+         - 获取发布标签对象 tagObject。
+         - 将传输过来的数据点同步到 tagObject.tagSensorObj 对象中。
+         - 调用 UpdateExistTagToList(tagObject) 方法更新 SVR 点。
+         - 增加已更新的标签点计数 tagSynCount。
+       - 否则，记录日志，表示接收点无对应的发布点。
+     - 否则，记录日志，表示接收点无对应的发布点。
+   - 记录日志，表示已更新的标签点个数和无对应的标签点个数。
+4. 最后，执行以下操作：
+   - 调用外部库方法 EndUpdateTags() 结束标签点更新。
+   - 根据返回结果记录日志，表示更新操作是否完成。
+   - 计算更新耗时，并记录日志。
+
+**UpdateExistTagToList(TagObject tagObject)**
+
+参数：tagObject（TagObject 类型，要更新的标签对象）
+
+返回值：无
+
+功能：根据订阅数据更新发布点。方法执行以下操作：
+- 调用 SetValueToTargetObj(tagObject) 方法获取值对象 value。
+- 将标签点的时间转换为 DateTime 类型。
+- 调用外部库方法 UpdateTagWithTimeStampToList() 更新标签点。
+
+**SetValueToTargetObj(TagObject tagObject)**
+
+参数：tagObject（TagObject 类型，标签对象）
+
+返回值：Object
+
+功能：根据标签对象的数据类型将采集数据转换为合适的类型。方法执行以下操作：
+- 根据数据类型选择相应的转换操作，将采集数据转换为合适的类型。
+- 如果运行模式为自动模式（GlobalClass.RunMode 等于 0）且配置允许数据转换（RunCfgObj.isDataConvert 等于 1），则根据配置的数据类型进行强制转换。
+  - 如果转换过程中发生异常，则记录日志，表示转换异常。
+- 返回转换后的值对象。
+
+**SetPubLight()**
+
+参数：无
+
+返回值：无
+
+功能：根据时间间隔判断发布灯的状态，如果时间间隔小于 30 秒，则将发布灯设置为闪灯状态；否则将发布灯设置为常亮状态。
+
+**SetLightFlash()**
+
+参数：无
+
+返回值：无
+
+功能：将发布灯设置为闪灯状态。如果全局变量 GlobalClass.LightStt 不等于 0，则调用 GlobalClass.SetLight("0") 方法将发布灯设置为闪灯状态。
+
+**SetLightChangliang()**
+
+参数：无
+
+返回值：无
+
+功能：将发布灯设置为常亮状态。如果全局变量 GlobalClass.LightStt 不等于 1，则调用 GlobalClass.SetLight("1") 方法将发布灯设置为常亮状态。
+
+**StartSynAutoTagToFile()**
+
+参数：无
+
+返回值：无
+
+功能：启动一个线程，处理未同步的动态点，并将其写入文件。线程会循环从动态点队列中获取动态点的名称，并将每 5000 条动态点写入指定文件。文件路径为 autoTagFilePath。如果文件不存在，会先创建该文件。线程会每隔 5 秒执行一次处理和写入操作。
+
+**SynAutoTagToFile()**
+
+参数：无
+
+返回值：无
+
+功能：处理未同步的动态点，并将其写入文件。方法会循环从动态点队列中获取动态点的名称，并将其添加到 autoTagList 列表中。当 autoTagList 列表达到 5000 条动态点或动态点队列为空且 autoTagList 列表不满 5000 条时，将动态点名称写入文件。如果文件不存在，会先创建该文件。方法会以 5 秒的间隔循环执行处理和写入操作。
+
+**StopOPCServer()**
+
+参数：无
+
+返回值：无
+
+功能：停止 OPC Server。方法会执行以下操作：
+1. 设置发送灯熄灭。
+2. 将停止标志 stopSign 设置为 true。
+3. 等待 5000 毫秒，确保相关线程已停止。
+4. 通知所有 OPC 客户端与服务器断开连接。
+5. 注销 OPC
+
+ Server。
+6. 记录日志，表示 OPC Server 已退出。
+
+**CreateSubscription()**
+
+参数：无
+
+返回值：无
+
+功能：创建一个订阅，用于接收数据更新。创建的订阅对象将通过 group 属性进行引用。
+
+**类：TagObject**
+
+属性：
+- tagHandlerId（类型：IntPtr，默认值：IntPtr.Zero）：标签点在 SVR 中的句柄，即 AddTag 方法的返回值。
+- pubTagName（类型：string，默认值：""）：发布点的名称。
+- isSynName（类型：bool，默认值：false）：自动加点是否已同步到文件。
+- isWriteable（类型：bool，默认值：false）：是否可写，即标签点是否为只读。
+- dataType（类型：string，默认值："ENUM_FLOAT"）：DCS 标签数据类型。
+- tagSensorObj（类型：Data）：标签点的传感器数据对象。
