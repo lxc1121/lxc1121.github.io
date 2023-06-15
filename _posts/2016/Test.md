@@ -1,3 +1,13 @@
+---
+title: Data
+layout: post
+categories:
+- vim
+tags:
+- vim
+---
+```
+
 **Data类**
 
 Data类定义了表示数据的属性：
